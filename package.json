@@ -9,9 +9,11 @@
 		"i2ctest": "node_modules/.bin/nodemon "
 	},
 	"dependencies": {
+		"easymidi": "^1.0.3",
 		"i2c-bus": "^5.1.0",
 		"midi": "^1.0.0",
-		"pca9685": "^4.0.3"
+		"pca9685": "^4.0.3",
+		"rtpmidi": "^1.0.0"
 	},
 	"devDependencies": {
 		"nodemon": "^2.0.3"
