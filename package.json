@@ -1,15 +1,19 @@
 {
-  "name": "touch",
-  "version": "1.0.0",
-  "main": "index.js",
-  "author": "Joakim Olsson <barbatron@gmail.com>",
-  "license": "MIT",
-  "scripts": {
-    "start": "node_modules/.bin/nodemon --no-deprecation src/main.js"
-  },
-  "dependencies": {
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.3"
-  }
+	"name": "touch",
+	"version": "1.0.0",
+	"main": "index.js",
+	"author": "Joakim Olsson <barbatron@gmail.com>",
+	"license": "MIT",
+	"scripts": {
+		"start": "node_modules/.bin/nodemon --no-deprecation src/main.js",
+		"i2ctest": "node_modules/.bin/nodemon "
+	},
+	"dependencies": {
+		"i2c-bus": "^5.1.0",
+		"midi": "^1.0.0",
+		"pca9685": "^4.0.3"
+	},
+	"devDependencies": {
+		"nodemon": "^2.0.3"
+	}
 }
