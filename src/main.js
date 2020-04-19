@@ -1,11 +1,15 @@
 // const { testI2c } = require('./i2c-led');
 const { testMidi } = require('./midisend');
+//const { testMidiInteractive } = require('./midiinteractive');
+const rtpmidi = require('rtpmidi');
 const { createDefaultTouch } = require('./touch');
 
 const onClose = [];
 
 // PWM using PCA9685:
 // testI2c();
+
+//testMidiInteractive();
 
 // Virtual MIDI
 const { session, input, output } = testMidi();
@@ -30,6 +34,7 @@ const updateMidiState = (touchState) => {
 		a,
 		b
 	};
+
 	console.log('Midi state = ', midiState);
 
 	// Toss a message!
@@ -42,9 +47,9 @@ const updateMidiState = (touchState) => {
 };
 
 onClose.push(() => {
-	input.closePort();
-	output.closePort();
-	session.end();
+	rtpmidi.manager.reset(() => {
+		process.exit();
+	});
 });
 
 // Dump touch panel packets:
