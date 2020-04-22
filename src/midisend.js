@@ -9,14 +9,14 @@ const testMidi = (ip = REMOTE_IP) => {
 	const output = new midi.output();
 
 	const session = rtpmidi.manager.createSession({
-		localName: 'PiSession',
+		localName: 'Session',
 		bonjourName: 'Session',
 		port: 5008
 	});
 
 	// Create the virtual midi ports
 	input.openVirtualPort('My Virtual Midi Input');
-	output.openVirtualPort('My Virtual Midi Output');
+	output.openPort(1);
 
 	// Route the messages
 	session.on('message', (deltaTime, message) => {
@@ -30,9 +30,6 @@ const testMidi = (ip = REMOTE_IP) => {
 		console.log('received a local message', message);
 		session.sendMessage(deltaTime, message);
 	});
-
-	// Connect to a remote session
-	session.connect({ address: '192.168.1.201', port: 5004 });
 
 	return {
 		session,
