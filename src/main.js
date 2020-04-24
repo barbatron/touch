@@ -1,93 +1,127 @@
-// const { testI2c } = require('./i2c-led');
-const { testMidi } = require('./midisend');
-const { createDefaultTouch } = require('./touch');
+// const bös = require "./rtpmidi";
+const { startFanControl } = require('./fans');
+const WebSocket = require('ws');
+const process = require('process');
 
+// Misc
+
+const log = (...args) => console.log.apply(console, [ `${new Date().toISOString()}> `, ...args ]);
 const onClose = [];
 
-// PWM using PCA9685:
-// testI2c();
+// === Websocket stuff ===
 
-// Virtual MIDI
-const { session, input, output } = testMidi();
-const MIDI_MIN = 0;
-const MIDI_MAX = 127;
+const LISTEN_PORT = 8877;
+const wsServer = new WebSocket.Server({ port: LISTEN_PORT });
 
-const lerpMidiValue = (value) => Math.floor(Math.max(MIDI_MIN, Math.min(value, MIDI_MAX)));
+// Protocol
 
-let midiState = {
-	a: 64,
-	b: 64,
-	last: undefined,
-	index: -1
-};
+const messageHandlers = {};
 
-const updateMidiState = (touchState) => {
-	const a = lerpMidiValue(touchState.x / 510 * 127);
-	const b = lerpMidiValue(touchState.y / 262 * 127);
-	midiState = {
-		...midiState,
-		last: { a: midiState.a, b: midiState.b },
-		a,
-		b
-	};
-	console.log('Midi state = ', midiState);
+// Heartbeat
 
-	// Toss a message!
-	const volume = a;
-	const note = b;
-	output.sendMessage([ 176, 7, 100 ]); // X-axis: volume [ 176, 7, 100 ]
-	output.sendMessage([ 144, 64, 90 ]); // Y-axis: note on [ 144, 64, 94 ]
-	// Note off
-	setTimeout(() => output.sendMessage([ 128, 64, 40 ]), 500); // note off [ 128, 64, 40 ]
-};
+function noop() {}
 
-onClose.push(() => {
-	input.closePort();
-	output.closePort();
-	session.end();
-});
+function heartbeat() {
+	this.isAlive = true;
+}
 
-// Dump touch panel packets:
-let touchState = undefined;
+const handleMessage = (webSocket, message) => {
+	console.log('message from websocket', message, Object.keys(messageHandlers));
 
-const updateTouchState = (newState) => {
-	const timestamp = new Date().toUTCString();
-	const index = touchState ? touchState.index + 1 : 0;
-	touchState = { ...newState, index, timestamp };
-	console.log('TouchState = ', touchState);
-	return touchState;
-};
+	const { type, params } = JSON.parse(message);
+	console.log('type params', type, params);
 
-const handleTouchEvent = (ev) => {
-	console.log('------------------------');
-	// parse event
-	const { xDelta, yDelta } = ev;
-	// update touch state
-	const prevState = {
-		...touchState,
-		x: 260,
-		y: 141,
-		lastX: undefined,
-		lastY: undefined
-	};
-	const x = prevState.x + xDelta;
-	const y = prevState.y + yDelta;
-	const lastX = prevState.x;
-	const lastY = prevState.y;
-	updateTouchState({ x, y, lastX, lastY, ev });
-	updateMidiState(touchState);
-};
-
-const { touch, device } = createDefaultTouch();
-touch.on(device, handleTouchEvent);
-
-process.on('SIGINT', () => {
-	console.log('Shutting down...');
-	onClose.forEach((op) => {
+	const messageHandler = messageHandlers[type];
+	if (messageHandler) {
+		console.log('messageHandler', messageHandler);
 		try {
-			op();
+			const result = messageHandler(params);
+			console.log('message result', result);
 		} catch (err) {
-			console.warn('Failed teardown: ', err);
+			console.warn('error handling message', message, type, params, err);
 		}
+	} else {
+		console.log('No handler found');
+	}
+};
+
+wsServer.on('connection', function connection(webSocket, req) {
+	// log
+	const ip = req.socket.remoteAddress;
+	console.log('WS> connection from %s', ip);
+
+	// establish heartbeat
+	webSocket.isAlive = true;
+	webSocket.on('pong', heartbeat);
+
+	// connect messages
+	webSocket.on('message', (data) => handleMessage(webSocket, data));
+
+	// sign-off
+	webSocket.on('close', () => {
+		console.log('WS> closed connection', webSocket.toString());
 	});
 });
+
+const interval = setInterval(() => {
+	console.log('%s> ping', new Date().toISOString());
+	wsServer.clients.forEach((ws) => {
+		if (ws.isAlive === false) {
+			return ws.terminate();
+		}
+		ws.isAlive = false;
+		ws.ping(noop);
+	});
+}, 30000);
+
+wsServer.on('close', () => clearInterval(interval));
+
+console.log('WS setup OK');
+
+// === FANS ===
+
+console.log('Fans...');
+
+const makeFanMessageHandler = (fan, name) => (params) => {
+	try {
+		const val = Number(params);
+		console.log('Fan value', val);
+		if (val >= 0 && val <= 1) {
+			console.log('Setting fan %s to %d%', name, Math.floor(val * 100));
+			fan.set(val);
+		} else {
+			console.warn('Fan value out of range (0-1)');
+		}
+	} catch (err) {
+		console.warn('Unable to parse fan params', err);
+	}
+};
+
+startFanControl().then(({ topFan, filterFan }) => {
+	console.log('Got the fans boss!');
+
+	topFan.open();
+	messageHandlers.TOP_FAN = makeFanMessageHandler(topFan);
+
+	filterFan.open();
+	messageHandlers.FILTER_FAN = makeFanMessageHandler(filterFan);
+
+	onClose.push(
+		// Disconnect PCA
+		() => topFan.pca.close()
+	);
+});
+
+// == DISPOSAL ===
+
+const close = () => {
+	onClose.map((thing) => thing());
+};
+
+// === DONE ===
+onClose.push(
+	// Shut down web server and close clients/ports
+	() => wsServer.close()
+);
+
+console.log(`Listening on port ${LISTEN_PORT}...`);

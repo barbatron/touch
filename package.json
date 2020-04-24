@@ -13,7 +13,8 @@
 		"i2c-bus": "^5.1.0",
 		"midi": "^1.0.0",
 		"pca9685": "^4.0.3",
-		"rtpmidi": "^1.0.0"
+		"rtpmidi": "^1.0.0",
+		"ws": "^7.2.3"
 	},
 	"devDependencies": {
 		"nodemon": "^2.0.3"
