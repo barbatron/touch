@@ -51,6 +51,7 @@ session.on('disconnect', () => {
 });
 
 connectSession();
+
 onClose.push(
 	() =>
 		new Promise((resolve) => {

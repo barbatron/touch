@@ -9,9 +9,9 @@ const testMidi = (ip = REMOTE_IP) => {
 	const output = new midi.output();
 
 	const session = rtpmidi.manager.createSession({
-		localName: 'Session',
-		bonjourName: 'Session',
-		port: 5008
+		localName: 'BARBASTATION',
+		bonjourName: 'BARBASTATION',
+		port: 5006
 	});
 
 	// Create the virtual midi ports
